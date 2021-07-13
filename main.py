@@ -2,7 +2,7 @@ from dotenv import load_dotenv, find_dotenv
 import os
 import datetime as dt
 
-from utils import pd_table, plot_today_html, send_mail, compile_email, alert
+from flood_alert.utils import pd_table, plot_today_html, send_mail, compile_email, alert
 
 
 ##############################
@@ -62,11 +62,13 @@ msg = compile_email(homename=homename,
                     receiver_email=receiver_email,
                     signature=signature,
                     df=hnd_table,
-                    alert_levels=alert_levels_hnd)
+                    alert_levels=alert_levels_hnd,
+                    )
 
-if __name__ == "__main__":
-    sendo_ = send_mail(port=port,
-                password=GMAIL,
-                receiver_email=receiver_email,
-                message=msg.as_string(),
-                sender_email=sender_email)
+def do_all(event, context):
+  if alert(hnd_table):
+      send_mail(port=port,
+              password=GMAIL,
+              receiver_email=receiver_email,
+              message=msg.as_string(),
+              sender_email=sender_email)
