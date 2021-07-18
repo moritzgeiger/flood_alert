@@ -25,13 +25,16 @@ from os.path import basename
 
 def table_and_level(base_url, params, checkpoints):
     """
-    returns the biggest visible table on a given url destination and the alert level of the tides for several
-    checkpoints in a dictionary {<checkpoint>:{'df':<df>,
+    returns the biggest visible table on a given url destination, the alert level of the tides for several
+    checkpoints and the list of notification levels for each checkpoint in a dictionary:
+                                  {<checkpoint>:{'df':<df>,
                                                 'alert_lvl':<lvl>,
-                                                'level_list':<[list]>}}.
+                                                'level_list':<[list]>
+                                                }
+                                  }.
     takes in base_url (term '___placeholder___' is in the string to insert checkpoint id),
-    params (using requests)
-    AND a dictionary of the checkpoint_id (string) as keys and ja list of threshold alert levels as values.
+    params (to feed the get request)
+    and a dictionary of the checkpoint_id (string) as keys and a list of threshold notification levels as values.
     """
     print('table_and_level() was called.')
     results = {}
@@ -63,7 +66,7 @@ def table_and_level(base_url, params, checkpoints):
 
 def plot_recent_html(df, lvls):
     """
-    Returns the water level plot html encoded filtered to today.
+    Returns the water level plot html encoded filtered to the last 12 hours.
     """
     # filter df
     df_recent = df.head(48)
@@ -72,12 +75,16 @@ def plot_recent_html(df, lvls):
     fig = plt.figure()
     plt.ion() # don't show plot
     sns.lineplot(data=df_recent.set_index('Datum'))
-    plt.xticks(rotation=90)
+    plt.xticks(rotation=45)
     # plot lvls
     for i,lvl in enumerate(lvls):
         sns.lineplot(x=df_recent.Datum, y=lvl, label=f'Stufe {i+1}')
     plt.legend()
     plt.grid(axis='y')
+    plt.xlabel('Uhrzeit')
+    plt.ylabel('Wasserstand (cm) ueber NN')
+    plt.title('Development last 12 hours', size=12)
+    plt.tight_layout()
 
     plt.close(fig)
 
@@ -85,11 +92,17 @@ def plot_recent_html(df, lvls):
     tmpfile = BytesIO()
     fig.savefig(tmpfile, format='png')
     encoded = base64.b64encode(tmpfile.getvalue()).decode('utf-8')
-    plot_html = 'Development last 12 hours:<br><br>' + '<img src=\'data:image/png;base64,{}\'>'.format(encoded) + "<br><br>"
+    plot_html = '<br><br>' + '<img src=\'data:image/png;base64,{}\'>'.format(encoded) + "<br><br>"
 
     return plot_html
 
 def send_email(homename, sender_email, receiver_email, password, port, signature, lvl_results, debug):
+    """
+    Compiles an Email with the email.mime library and sends it through a Google Mail smtp server.
+    Takes in variables for the mail content [homename (str), lvl_results (dict), signature (str)]
+    and settings to send the email [sender_email, receiver_email, password, port]
+    There is a debug argument to test the email function despite a trigger isn't reached.
+    """
     print('send email was called.')
     # check, if there is any alert in the checkpoints
     if any([x.get('alert_lvl') for x in lvl_results.values()]) or debug:

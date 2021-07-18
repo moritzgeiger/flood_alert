@@ -46,7 +46,7 @@ def do_all(data=None, context=None):
               port=port,
               signature=signature,
               lvl_results=hnd_tables,
-              debug=debug)
+              debug=True)
 
 if __name__ == '__main__':
     do_all()
