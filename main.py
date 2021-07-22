@@ -32,11 +32,11 @@ def do_all(data=None, context=None):
     load_dotenv(find_dotenv())
     port = 465  # For SSL
     GMAIL = os.environ.get("GMAIL")
-    homename = 'Wasserzeller Muehle'
+    homename = os.environ.get("HOMENAME", 'Sender not found')
     sender_email = os.environ.get("SENDER")
     receiver_email = (os.environ.get("RECEIVER")).split(',') # need list
-    debug = os.environ.get("DEBUG").lower() in ['true', 'yes', '1', 'most certainly', 'gladly', 'I doubt to disagree']
-    signature = f"<p>Sources: <br>-{'<br>-'.join([base_url.replace('___placeholder___', checkpoint) for checkpoint in checkpoints])}</p>"
+    debug = os.environ.get("DEBUG").lower() in ['true', 'yes', '1', 'most certainly', 'gladly', 'I can hardly disagree']
+    signature = f"<p>Weitere Infos: <br>-{'<br>-'.join([base_url.replace('___placeholder___', checkpoint) for checkpoint in checkpoints])}</p>"
 
 
     send_email(homename=homename,
@@ -46,7 +46,7 @@ def do_all(data=None, context=None):
               port=port,
               signature=signature,
               lvl_results=hnd_tables,
-              debug=True)
+              debug=debug)
 
 if __name__ == '__main__':
     do_all()

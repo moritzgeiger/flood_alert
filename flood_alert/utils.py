@@ -21,6 +21,7 @@ from io import BytesIO, StringIO
 import tempfile
 from email import encoders
 from os.path import basename
+import re
 
 
 def table_and_level(base_url, params, checkpoints):
@@ -29,7 +30,8 @@ def table_and_level(base_url, params, checkpoints):
     checkpoints and the list of notification levels for each checkpoint in a dictionary:
                                   {<checkpoint>:{'df':<df>,
                                                 'alert_lvl':<lvl>,
-                                                'level_list':<[list]>
+                                                'level_list':<[list]>,
+                                                'name':<normalized name>
                                                 }
                                   }.
     takes in base_url (term '___placeholder___' is in the string to insert checkpoint id),
@@ -52,16 +54,17 @@ def table_and_level(base_url, params, checkpoints):
 
         # get table and prepare
         df = tables[max_]
-        df.columns = ['Datum', f'Wasserstand_{checkpoint}']
+        real_name = re.sub('[^A-Za-z]+', '', checkpoint).capitalize()
+        df.columns = ['Datum', f'Wasserstand_{real_name}']
         df['Datum'] = pd.to_datetime(df.Datum, format='%d.%m.%Y %H:%M')
-        df_recent_lvl = df.loc[0, f'Wasserstand_{checkpoint}']
+        df_recent_lvl = df.loc[0, f'Wasserstand_{real_name}']
 
         # check which level is reached
         alert_check = [df_recent_lvl > lvl for lvl in level_list]
-
         results[checkpoint] = {'df':df,
-                        'alert_lvl':sum(alert_check),
-                        'level_list':level_list}
+                               'name':real_name,
+                              'alert_lvl':sum(alert_check),
+                              'level_list':level_list}
     return results
 
 def plot_recent_html(df, lvls):
@@ -83,7 +86,7 @@ def plot_recent_html(df, lvls):
     plt.grid(axis='y')
     plt.xlabel('Uhrzeit')
     plt.ylabel('Wasserstand (cm) ueber NN')
-    plt.title('Development last 12 hours', size=12)
+    plt.title('Entwicklung ueber die letzten 12 Stunden.', size=12)
     plt.tight_layout()
 
     plt.close(fig)
@@ -104,32 +107,39 @@ def send_email(homename, sender_email, receiver_email, password, port, signature
     There is a debug argument to test the email function despite a trigger isn't reached.
     """
     print('send email was called.')
-    # check, if there is any alert in the checkpoints
-    if any([x.get('alert_lvl') for x in lvl_results.values()]) or debug:
+    # check, if there is alert level 2 was reached in the checkpoints
+    if any([x.get('alert_lvl') > 1 for x in lvl_results.values()]) or debug:
         print('there is an alert!')
-        # compile email msg
-        now = dt.datetime.now().strftime("%y-%m-%d %H:%M:%S")
-        msg = MIMEMultipart('mixed')
-        msg['Subject'] = f"{homename} -WATER ALERT- {now}"
-        msg['From'] = f'{homename} <{sender_email}>'
-        msg['To'] = ','.join(receiver_email)
-
         # init msg
-        init = "<p>***ALERT***, <br>Es wurde ein ueberhoehter Wasserstand gemeldet.<br><br></p>"
-        # get contents
-        today = dt.datetime.today().date()
+        init = "<p>***WASSERSTANDSALARM***, <br><br>Es wurde ein ueberhoehter Wasserstand gemeldet.<br><br></p>"
 
         # unpack dfs
         plots_html = [plot_recent_html(vals.get('df'), vals.get('level_list')) for id_, vals in lvl_results.items()]
-        alert_levels_html = [f"<p>Alert level {key}: {val.get('alert_lvl')}</p>" for key, val in lvl_results.items()]
+        alert_levels_html = [f"<p><b>{i+1}. Meldestufe fuer {val.get('name').capitalize()}: {val.get('alert_lvl')}</b></p>" \
+                              for i, (key, val) in enumerate(lvl_results.items())]
 
         # merge all html per checkpoint together
         together = '<br><br>'.join([f'{alert_levels_html[x]}\
-                                        <br><br>{plots_html[x]}' for x in range(len(plots_html))])
+                                        <br>{plots_html[x]}' for x in range(len(plots_html))])
 
         # Record the MIME types of text/html.
         text = MIMEMultipart('alternative')
         text.attach(MIMEText(init + together + signature, 'html', _charset="utf-8"))
+
+        # find the highest level
+        all_lvls = {x.get('name'):x.get('alert_lvl') for x in lvl_results.values()}
+        town = max(all_lvls, key=all_lvls.get)
+
+        # compile email msg
+        now = dt.datetime.now().strftime("%y-%m-%d %H:%M")
+        msg = MIMEMultipart('mixed')
+        # avoid automized email ruling by subject when testing
+        if debug:
+            msg['Subject'] = f"-TESTALARM- Meldestufe {all_lvls.get(town)} {town} - {now}"
+        else:
+            msg['Subject'] = f"-WASSERALARM- Meldestufe {all_lvls.get(town)} {town} - {now}"
+        msg['From'] = f'{homename} <{sender_email}>'
+        msg['To'] = ','.join(receiver_email)
 
         # add all parts to msg
         msg.attach(text)
