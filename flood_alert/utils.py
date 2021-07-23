@@ -4,13 +4,8 @@ import pandas as pd
 import numpy as np
 import smtplib
 import ssl
-import email
-from dotenv import load_dotenv, find_dotenv
-import os
 import datetime as dt
-from time import sleep
 import matplotlib.pyplot as plt
-import plotly.express as px
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
@@ -22,6 +17,7 @@ import tempfile
 from email import encoders
 from os.path import basename
 import re
+from google.cloud import storage
 
 
 def table_and_level(base_url, params, checkpoints):
@@ -67,10 +63,50 @@ def table_and_level(base_url, params, checkpoints):
                               'level_list':level_list}
     return results
 
-def plot_recent_html(df, lvls):
+def upload_file_gcp(source_file_bytes, file_name_uploaded, content_type, bucket_name=None):
+    """Uploads a bytes pdf file to the bucket and returns the cloud link."""
+    print("upload_file_gcp was called.")
+
+    # Building connection with gcs
+    storage_client = storage.Client()
+    bucket = storage_client.bucket(bucket_name)
+
+    # opening a blob/destination name
+    blob = bucket.blob(file_name_uploaded)
+
+    # init upload => timeout needs to be high for big files
+    blob.upload_from_string(source_file_bytes.getvalue(),
+                            content_type=content_type,
+                            timeout = 500.0,
+                            )
+
+    print(f"file uploaded as {blob.public_url}.")
+    return blob.public_url
+
+def upload_csv(lvl_results, bucket_name):
+  """
+  returns the url from an uploaded csv file to gcp.
+  takes in a dictionary with at least one key ('df') and
+  the bucket name of the gcp storage bucket.
+  """
+    # TODO: Save attachments to cloud to be attached
+    # create tables as .csv from temp files
+    # tempdir = tempfile.gettempdir()
+    # filenames = [f'{tempdir}/{name}.csv' for name in lvl_results.keys()]
+    # # filter and save csv tables
+    # save_files = [value.get('df').head(48).to_csv(f'{tempdir}/{key}.csv') for key, value in lvl_results.items()]
+    # for file_ in filenames:
+    #     with open(file_, "rb") as fil:
+    #         return upload_file_gcp(fil,
+    #                         file_,
+    #                         bucket_name=bucket_name,
+    #                         content_type=?????)
+
+def plot_recent_html(df, lvls, bucket_name=None):
     """
     Returns the water level plot html encoded filtered to the last 12 hours.
     """
+    print('plot_html was called')
     # filter df
     df_recent = df.head(48)
 
@@ -91,14 +127,32 @@ def plot_recent_html(df, lvls):
 
     plt.close(fig)
 
-    # save plot
-    tmpfile = BytesIO()
-    fig.savefig(tmpfile, format='png')
-    encoded = base64.b64encode(tmpfile.getvalue()).decode('utf-8')
-    plot_html = '<br><br>' + '<img src=\'data:image/png;base64,{}\'>'.format(encoded) + "<br><br>"
+    if bucket_name:
+        print(f'uploading to {bucket_name}')
+        tmpfile = BytesIO()
+        fig.savefig(tmpfile, format='png')
+        now = dt.datetime.now().strftime('%Y%m%d%H%M%s%ms')
+        print(now)
+        # upload to cloud and get url
+        file_url = upload_file_gcp(source_file_bytes=tmpfile,
+                                   file_name_uploaded=f'recent_dev_{now}.png',
+                                   bucket_name=bucket_name,
+                                   content_type='image/png')
+        html_img =  f'<img src="{file_url}" alt="Wasserstandsentwicklung 12 Stunden">'
+        tmpfile.close()
+        return html_img
 
-    return plot_html
+    # save plot as html locally as temp
+    else:
+        tmpfile = BytesIO()
+        fig.savefig(tmpfile, format='png')
+        encoded = base64.b64encode(tmpfile.getvalue()).decode('utf-8')
+        plot_html = '<br><br>' + '<img src=\'data:image/png;base64,{}\'>'.format(encoded) + "<br><br>"
+        return plot_html
 
+
+##### old send mail with mime
+##### find new source for sendinblue skd in send_mail.py
 def send_email(homename, sender_email, receiver_email, password, port, signature, lvl_results, debug):
     """
     Compiles an Email with the email.mime library and sends it through a Google Mail smtp server.
