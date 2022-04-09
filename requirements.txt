@@ -5,6 +5,8 @@ Pillow==8.3.1
 seaborn==0.11.1
 google-cloud-storage
 beautifulsoup4==4.11.1
+lxml==4.6.3
+
 
 
 # python-telegram-bot==13.11
@@ -12,3 +14,4 @@ beautifulsoup4==4.11.1
 # google-auth-httplib2
 # google-auth-oauthlib
 # jupyterlab
+
