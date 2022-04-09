@@ -6,6 +6,7 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
                      level=logging.INFO)
 
 from flood_alert.utils import table_and_level, plot_recent_html, send_email, send_telegram_messages
+from flood_alert.utils_tele import table_and_level, plot_recent_html, send_telegram_messages
 
 def do_all(data=None, context=None):
     """
