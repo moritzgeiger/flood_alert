@@ -7,3 +7,9 @@ raw_data/
 **/__pycache__/
 .env
 env-vars.yaml
+config.json
+env/
+.github
+token.json
+credentials.json
+service_acc.json

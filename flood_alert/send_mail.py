@@ -66,18 +66,24 @@ def update_campaign(campaign_id, signature, lvl_results, debug):
 
     ###### UPDATE CAMPAIGN #######
     email_campaign = sib_api_v3_sdk.UpdateEmailCampaign(html_content=body,
-                                                        scheduled_at=soon,
+                                                        # scheduled_at=soon,
                                                         subject=subject,
                                                         inline_image_activation=True,
                                                         recurring=True, # can receive campaign several times
                                                         send_at_best_time=False,
                                                         recipients={"listIds": [list_id]},
                                                         ) # UpdateEmailCampaign | Values to update a campaign
-
+    # Update an email campaign
     try:
-        # Update an email campaign
         api_instance.update_email_campaign(campaign_id, email_campaign)
-        print(f'email campaign {campaign_id} was updated. Mail will be sent at {soon.strftime("%y-%m-%d %H:%M")}.')
+        print(f'email campaign {campaign_id} was updated.')
 
     except ApiException as e:
         print("Exception when calling EmailCampaignsApi->update_email_campaign: %s\n" % e)
+
+    # send the updated email campaign
+    try:
+        api_instance.send_email_campaign_now(campaign_id)
+        print(f'email campaign {campaign_id} was sent at {now.strftime("%y-%m-%d %H:%M")}')
+    except ApiException as e:
+        print("Exception when calling EmailCampaignsApi->send_email_campaign_now: %s\n" % e)

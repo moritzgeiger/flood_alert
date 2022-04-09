@@ -1,8 +1,11 @@
-from dotenv import load_dotenv, find_dotenv
+# from dotenv import load_dotenv, find_dotenv
 import os
 import datetime as dt
+import logging
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                     level=logging.INFO)
 
-from flood_alert.utils import table_and_level, plot_recent_html, send_email
+from flood_alert.utils import table_and_level, plot_recent_html, send_email, send_telegram_messages
 
 def do_all(data=None, context=None):
     """
@@ -29,24 +32,34 @@ def do_all(data=None, context=None):
     ###### DO MAIL STUFF #########
     ##############################
     # email settings
-    load_dotenv(find_dotenv())
+    # load_dotenv(find_dotenv())
     port = 465  # For SSL
     GMAIL = os.environ.get("GMAIL")
     homename = os.environ.get("HOMENAME", 'Sender not found')
     sender_email = os.environ.get("SENDER")
     receiver_email = (os.environ.get("RECEIVER")).split(',') # need list
+    telegram_token = os.environ.get('TEL_TOKEN')
     debug = os.environ.get("DEBUG").lower() in ['true', 'yes', '1', 'most certainly', 'gladly', 'I can hardly disagree']
-    signature = f"<p>Weitere Infos: <br>-{'<br>-'.join([base_url.replace('___placeholder___', checkpoint) for checkpoint in checkpoints])}</p>"
+    base_urls_newline = '\n\n'.join([base_url.replace('___placeholder___', checkpoint) for checkpoint in checkpoints])
+    signature = f"Weitere Infos: \n{base_urls_newline}"
+    text = 'Alert - higher waterlevels detected'
 
 
-    send_email(homename=homename,
-              sender_email=sender_email,
-              receiver_email=receiver_email,
-              password=GMAIL,
-              port=port,
-              signature=signature,
-              lvl_results=hnd_tables,
-              debug=debug)
+    # send_email(homename=homename,
+    #           sender_email=sender_email,
+    #           receiver_email=receiver_email,
+    #           password=GMAIL,
+    #           port=port,
+    #           signature=signature,
+    #           lvl_results=hnd_tables,
+    #           debug=debug)
+
+    send_telegram_messages(
+        token=telegram_token,
+        text=text,
+        lvl_results=hnd_tables,
+        signature=signature
+        )
 
 if __name__ == '__main__':
     do_all()

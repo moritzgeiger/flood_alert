@@ -2,19 +2,12 @@ import requests
 from bs4 import BeautifulSoup
 import pandas as pd
 import numpy as np
-import smtplib
-import ssl
 import datetime as dt
 import matplotlib.pyplot as plt
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from email.mime.base import MIMEBase
-from email.mime.application import MIMEApplication
 import seaborn as sns
 import base64
 from io import BytesIO, StringIO
 import tempfile
-from email import encoders
 from os.path import basename
 import re
 from google.cloud import storage
@@ -86,25 +79,6 @@ def upload_file_gcp(source_file_bytes, file_name_uploaded, content_type, bucket_
     print(f"file uploaded as {blob.public_url}.")
     return blob.public_url
 
-def upload_csv(lvl_results, bucket_name):
-  """
-  returns the url from an uploaded csv file to gcp.
-  takes in a dictionary with at least one key ('df') and
-  the bucket name of the gcp storage bucket.
-  """
-    # TODO: Save attachments to cloud to be attached
-    # create tables as .csv from temp files
-    # tempdir = tempfile.gettempdir()
-    # filenames = [f'{tempdir}/{name}.csv' for name in lvl_results.keys()]
-    # # filter and save csv tables
-    # save_files = [value.get('df').head(48).to_csv(f'{tempdir}/{key}.csv') for key, value in lvl_results.items()]
-    # for file_ in filenames:
-    #     with open(file_, "rb") as fil:
-    #         return upload_file_gcp(fil,
-    #                         file_,
-    #                         bucket_name=bucket_name,
-    #                         content_type=?????)
-
 def plot_recent_html(df, lvls, local=None, bucket_name=None):
     """
     Returns the water level plot as embed html filtered to the last 12 hours.
@@ -161,81 +135,6 @@ def plot_recent_html(df, lvls, local=None, bucket_name=None):
         encoded = base64.b64encode(tmpfile.getvalue()).decode('utf-8')
         plot_html = '<br><br>' + '<img src=\'data:image/png;base64,{}\'>'.format(encoded) + "<br><br>"
         return plot_html # embed code html
-
-
-##### old send mail with mime
-##### find new source for sendinblue skd in send_mail.py
-def send_email(homename, sender_email, receiver_email, password, port, signature, lvl_results, debug):
-    """
-    Compiles an Email with the email.mime library and sends it through a Google Mail smtp server.
-    Takes in variables for the mail content [homename (str), lvl_results (dict), signature (str)]
-    and settings to send the email [sender_email, receiver_email, password, port]
-    There is a debug argument to test the email function despite a trigger isn't reached.
-    """
-    print('send email was called.')
-    # check, if there is alert level 2 was reached in the checkpoints
-    if any([x.get('alert_lvl') > 1 for x in lvl_results.values()]) or debug:
-        print('there is an alert!')
-        # init msg
-        init = "<p>***WASSERSTANDSALARM***, <br><br>Es wurde ein ueberhoehter Wasserstand gemeldet.<br><br></p>"
-
-        # unpack dfs
-        plots_html = [plot_recent_html(vals.get('df'), vals.get('level_list')) for id_, vals in lvl_results.items()]
-        alert_levels_html = [f"<p><b>{i+1}. Meldestufe fuer {val.get('name').capitalize()}: {val.get('alert_lvl')}</b></p>" \
-                              for i, (key, val) in enumerate(lvl_results.items())]
-
-        # merge all html per checkpoint together
-        together = '<br><br>'.join([f'{alert_levels_html[x]}\
-                                        <br>{plots_html[x]}' for x in range(len(plots_html))])
-
-        # Record the MIME types of text/html.
-        text = MIMEMultipart('alternative')
-        text.attach(MIMEText(init + together + signature, 'html', _charset="utf-8"))
-
-        # find the highest level
-        all_lvls = {x.get('name'):x.get('alert_lvl') for x in lvl_results.values()}
-        town = max(all_lvls, key=all_lvls.get)
-
-        # compile email msg
-        now = dt.datetime.now().strftime("%y-%m-%d %H:%M")
-        msg = MIMEMultipart('mixed')
-        # avoid automized email ruling by subject when testing
-        if debug:
-            msg['Subject'] = f"-TESTALARM- Meldestufe {all_lvls.get(town)} {town} - {now}"
-        else:
-            msg['Subject'] = f"-WASSERALARM- Meldestufe {all_lvls.get(town)} {town} - {now}"
-        msg['From'] = f'{homename} <{sender_email}>'
-        msg['To'] = ','.join(receiver_email)
-
-        # add all parts to msg
-        msg.attach(text)
-
-        # create tables as .csv from temp files
-        tempdir = tempfile.gettempdir()
-        filenames = [f'{tempdir}/{name}.csv' for name in lvl_results.keys()]
-        # filter and save csv tables
-        save_files = [value.get('df').head(48).to_csv(f'{tempdir}/{key}.csv') for key, value in lvl_results.items()]
-        for file_ in filenames:
-            with open(file_, "rb") as fil:
-                part = MIMEApplication(
-                        fil.read(),
-                        Name=basename(file_))
-
-            part['Content-Disposition'] = f'attachment; filename={basename(file_)}'
-            msg.attach(part)
-
-        # Create a secure SSL context
-        context = ssl.create_default_context()
-
-        with smtplib.SMTP_SSL("smtp.gmail.com", port, context=context) as server:
-            server.login(sender_email, password)
-            server.sendmail(sender_email, receiver_email, msg.as_string())
-
-        print(f'successfully sent emails to {receiver_email}')
-    else:
-        _ = [print(f'There was no alert at {id_}') for id_ in lvl_results.keys()]
-        print('Exit function without sending mail.')
-
 
 def send_telegram_messages(token, text, lvl_results, signature):
     """Sends telegram updates to @wassermeldung channel.
@@ -296,6 +195,6 @@ def send_telegram_messages(token, text, lvl_results, signature):
 
 
     else:
-      _ = [print(f'There was no alert at {id_}') for id_ in lvl_results.keys()]
+      _ = [logging.info(f'There was no alert at {id_}') for id_ in lvl_results.keys()]
       logging.info('Exit function without sending message.')
 
