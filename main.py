@@ -38,7 +38,7 @@ def do_all(data=None, context=None):
     GMAIL = os.environ.get("GMAIL")
     homename = os.environ.get("HOMENAME", 'Sender not found')
     sender_email = os.environ.get("SENDER")
-    receiver_email = (os.environ.get("RECEIVER")).split(',') # need list
+    # receiver_email = (os.environ.get("RECEIVER")).split(',') # need list
     telegram_token = os.environ.get('TEL_TOKEN')
     debug = os.environ.get("DEBUG").lower() in ['true', 'yes', '1', 'most certainly', 'gladly', 'I can hardly disagree']
     base_urls_newline = '\n\n'.join([base_url.replace('___placeholder___', checkpoint) for checkpoint in checkpoints])

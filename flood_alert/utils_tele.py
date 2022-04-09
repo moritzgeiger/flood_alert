@@ -12,6 +12,7 @@ from os.path import basename
 import re
 from google.cloud import storage
 import logging
+import os
 
 
 BUCKET = os.environ.get("BUCKET")
